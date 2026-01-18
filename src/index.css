@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+
+  /* Light Theme Variables */
+  --bg-app: 245, 245, 247;
+  --bg-card: 255, 255, 255;
+  --text-main: #1a1a1a;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --border-color: rgba(0, 0, 0, 0.08);
+  --input-bg: #ffffff;
+  --modal-bg: #ffffff;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark Theme Variables */
+    --bg-app: 28, 28, 30;
+    --bg-card: 44, 44, 46;
+    --text-main: #f2f2f7;
+    --text-secondary: #aeaeb2;
+    --text-muted: #636366;
+    --border-color: rgba(255, 255, 255, 0.1);
+    --input-bg: #1c1c1e;
+    --modal-bg: #2c2c2e;
+  }
+}
+
+/* Force Light Theme */
+[data-theme="light"] {
+  --bg-app: 245, 245, 247;
+  --bg-card: 255, 255, 255;
+  --text-main: #1a1a1a;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --border-color: rgba(0, 0, 0, 0.08);
+  --input-bg: #ffffff;
+  --modal-bg: #ffffff;
+}
+
+/* Force Dark Theme */
+[data-theme="dark"] {
+  --bg-app: 28, 28, 30;
+  --bg-card: 44, 44, 46;
+  --text-main: #f2f2f7;
+  --text-secondary: #aeaeb2;
+  --text-muted: #636366;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --input-bg: #1c1c1e;
+  --modal-bg: #2c2c2e;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: transparent;
+  color: var(--text-main);
+}
+
+/* Pulse animation for status indicator */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}

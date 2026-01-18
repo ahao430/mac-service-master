@@ -1,0 +1,49 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background: macOS Squircle -->
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg_gradient)" />
+
+  <!-- Inner Shadow/Border effect -->
+  <rect x="64" y="64" width="896" height="896" rx="200" stroke="url(#border_gradient)" stroke-width="16" stroke-opacity="0.5"/>
+
+  <!-- Content: Gear + Lightning -->
+  <g filter="url(#drop_shadow)">
+    <!-- Gear -->
+    <path d="M512 256C370.6 256 256 370.6 256 512C256 653.4 370.6 768 512 768C653.4 768 768 653.4 768 512C768 370.6 653.4 256 512 256ZM512 672C423.6 672 352 600.4 352 512C352 423.6 423.6 352 512 352C600.4 352 672 423.6 672 512C672 600.4 600.4 672 512 672Z" fill="white" fill-opacity="0.9"/>
+
+    <!-- Lightning Bolt -->
+    <path d="M480 320L384 544H512L448 768L640 480H512L576 320H480Z" fill="url(#bolt_gradient)"/>
+  </g>
+
+  <!-- Definitions -->
+  <defs>
+    <!-- Background Gradient: Deep Blue to Lighter Blue -->
+    <linearGradient id="bg_gradient" x1="512" y1="64" x2="512" y2="960" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#1D4ED8"/>
+    </linearGradient>
+
+    <!-- Bolt Gradient: Yellow/Orange -->
+    <linearGradient id="bolt_gradient" x1="384" y1="320" x2="640" y2="768" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FCD34D"/>
+      <stop offset="1" stop-color="#F59E0B"/>
+    </linearGradient>
+
+    <!-- Border Gradient for subtle depth -->
+    <linearGradient id="border_gradient" x1="512" y1="64" x2="512" y2="960" gradientUnits="userSpaceOnUse">
+      <stop stop-color="white" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="black" stop-opacity="0.1"/>
+    </linearGradient>
+
+    <!-- Drop Shadow for Icon Content -->
+    <filter id="drop_shadow" x="200" y="200" width="624" height="624" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="8"/>
+      <feGaussianBlur stdDeviation="8"/>
+      <feComposite in2="hardAlpha" operator="out"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape"/>
+    </filter>
+  </defs>
+</svg>
