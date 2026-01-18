@@ -56,7 +56,7 @@ npm run tauri build
 1. **终端命令（推荐）**：
    打开终端，输入以下命令并回车（可能需要输入开机密码）：
    ```bash
-   sudo xattr -rd com.apple.quarantine /Applications/Service\ Master.app
+   sudo xattr -rd com.apple.quarantine /Applications/ServiceMaster.app
    ```
 2. **系统设置**：
    前往 `系统设置` -> `隐私与安全性` -> `安全性`，点击 **“仍要打开”**。
