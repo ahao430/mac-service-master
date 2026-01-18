@@ -1,6 +1,6 @@
 [package]
 name = "service_master"
-version = "0.1.0"
+version = "0.1.1"
 description = "macOS launchd 图形化管理工具"
 authors = ["wanghao"]
 edition = "2021"
