@@ -2,6 +2,17 @@
 
 一款基于 Tauri v2 开发的跨平台本地服务管理工具，旨在为开发者提供美观且高效的本地服务（如 macOS launchd, Linux systemd, Windows services）图形化管理界面。
 
+## 📸 应用截图
+
+![主界面](docs/images/main-interface.png)
+*主界面 - 服务列表管理*
+
+![编辑界面](docs/images/edit-interface.png)
+*编辑界面 - 双启动模式支持*
+
+![设置界面](docs/images/settings-interface.png)
+*设置界面 - 主题与 WebDAV 配置*
+
 ## 📚 文档
 
 - **[使用指南](./docs/USER_GUIDE.md)** - 详细的使用说明和配置指南
@@ -10,13 +21,18 @@
 ## 核心功能
 
 - **🚀 服务管理**：可视化管理本地开发服务，支持启动、停止、重启及状态检测。
-- **💻 双启动模式**：支持启动命令和启动应用两种模式，轻松管理 CLI 工具和 macOS 应用。
+- **💻 双启动模式**：
+  - **启动命令模式**：管理 CLI 工具和服务（如 OpenWebUI、MySQL、Redis）
+  - **启动应用模式**：直接管理 macOS 应用（如 AntigravityTools、Google Chrome）
+  - 智能图标切换：选择模式时自动切换对应的图标
+  - 运行状态检测：应用模式与服务模式一致，实时显示启动/停止状态
 - **🌐 跨平台支持**：支持 macOS (launchd)、Windows (计划任务/服务预留) 及 Linux (systemd)。
 - **☁️ WebDAV 同步**：支持将服务配置、图标、元数据同步至 WebDAV（如坚果云），方便多机同步。
 - **📦 预设模板**：内置常用服务模板（CLIProxy、OpenWebUI、AntigravityTools 等），支持快速创建。
 - **📊 实时日志**：集成服务日志查看器，支持实时滚动及清空日志。
-- **🔍 健康检查**：自动检测服务端口占用及 HTTP 健康状态。
+- **🔍 健康检查**：自动检测服务端口占用及 HTTP 健康状态，延迟检查避免误报。
 - **🎨 高度自定义**：支持主题色、窗口透明度及亮/暗色模式切换。
+- **💡 智能提示**：操作成功/失败使用美观的 Toast 提示，不再阻塞界面。
 
 ## 快速开始
 
