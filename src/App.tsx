@@ -165,8 +165,7 @@ function ServiceModal({
   editingService: LaunchAgent | null;
 }) {
   const [label, setLabel] = useState("");
-  const [program, setProgram] = useState("");
-  const [programArgs, setProgramArgs] = useState("");
+  const [startCommand, setStartCommand] = useState("");
   const [runAtLoad, setRunAtLoad] = useState(false);
   const [keepAlive, setKeepAlive] = useState(false);
   const [workingDir, setWorkingDir] = useState("");
@@ -176,7 +175,7 @@ function ServiceModal({
   const [displayName, setDisplayName] = useState("");
   const [description, setDescription] = useState("");
   const [port, setPort] = useState("");
-  const [healthUrl, setHealthUrl] = useState("");
+  const [webUrl, setWebUrl] = useState("");
   const [icon, setIcon] = useState("");
   const [projectPath, setProjectPath] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -194,11 +193,14 @@ function ServiceModal({
     setDisplayName(preset.display_name);
     setDescription(preset.description);
     setIcon(preset.icon);
-    setProgramArgs(preset.program_arguments?.join(" ") || "");
-    setProgram(preset.program || "");
+
+    // 合并 program 和 program_arguments 为启动命令
+    const command = preset.program_arguments?.join(" ") || preset.program || "";
+    setStartCommand(command);
+
     setWorkingDir(preset.working_directory || "");
     setPort(preset.port?.toString() || "");
-    setHealthUrl(preset.health_url || "");
+    setWebUrl(preset.health_url || "");
     setRunAtLoad(preset.run_at_load);
     setKeepAlive(preset.keep_alive);
   };
@@ -207,8 +209,13 @@ function ServiceModal({
     setShowDeleteConfirm(false);
     if (editingService) {
       setLabel(editingService.label);
-      setProgram(editingService.program || "");
-      setProgramArgs(editingService.program_arguments?.join(" ") || "");
+
+      // 合并 program 和 program_arguments 为启动命令
+      const commandParts = [];
+      if (editingService.program) commandParts.push(editingService.program);
+      if (editingService.program_arguments) commandParts.push(...editingService.program_arguments);
+      setStartCommand(commandParts.join(" "));
+
       setRunAtLoad(editingService.run_at_load || false);
       setKeepAlive(editingService.keep_alive || false);
       setWorkingDir(editingService.working_directory || "");
@@ -217,13 +224,12 @@ function ServiceModal({
       setDisplayName(editingService.display_name || "");
       setDescription(editingService.description || "");
       setPort(editingService.port?.toString() || "");
-      setHealthUrl(editingService.health_url || "");
+      setWebUrl(editingService.health_url || "");
       setIcon(editingService.icon || "");
       setProjectPath(editingService.project_path || "");
     } else {
       setLabel("");
-      setProgram("");
-      setProgramArgs("");
+      setStartCommand("");
       setRunAtLoad(false);
       setKeepAlive(false);
       setWorkingDir("");
@@ -232,7 +238,7 @@ function ServiceModal({
       setDisplayName("");
       setDescription("");
       setPort("");
-      setHealthUrl("");
+      setWebUrl("");
       setIcon("");
       setProjectPath("");
     }
@@ -244,10 +250,15 @@ function ServiceModal({
 
     setSaving(true);
     try {
+      // 将启动命令拆分为 program 和 program_arguments
+      const commandParts = startCommand.trim().split(/\s+/);
+      const program = commandParts.length > 0 ? commandParts[0] : null;
+      const programArguments = commandParts.length > 1 ? commandParts.slice(1) : null;
+
       const config: ServiceConfig = {
         label: label.trim(),
-        program: program.trim() || null,
-        program_arguments: programArgs.trim() ? programArgs.trim().split(/\s+/) : null,
+        program: program,
+        program_arguments: programArguments,
         run_at_load: runAtLoad || null,
         keep_alive: keepAlive || null,
         working_directory: workingDir.trim() || null,
@@ -260,7 +271,7 @@ function ServiceModal({
         description: description.trim() || null,
         icon: icon || null,
         port: port.trim() ? parseInt(port.trim(), 10) : null,
-        health_url: healthUrl.trim() || null,
+        health_url: webUrl.trim() || null,
         project_path: projectPath.trim() || null,
         order: editingService?.order ?? null,
       };
@@ -358,29 +369,14 @@ function ServiceModal({
             />
           </div>
 
-          {/* Program & Args */}
+          {/* 启动命令 */}
           <div style={{ marginBottom: "16px" }}>
             <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text-secondary)", marginBottom: "6px" }}>
-              可执行程序 <span style={{ color: "#ef4444" }}>*</span>
+              启动命令 <span style={{ color: "#ef4444" }}>*</span>
             </label>
             <input
-              type="text" value={program} onChange={(e) => setProgram(e.target.value)}
-              placeholder="/usr/local/bin/myapp"
-              style={{
-                width: "100%", padding: "10px 12px", fontSize: "14px", border: "1px solid var(--border-color)",
-                borderRadius: "8px", outline: "none", boxSizing: "border-box", backgroundColor: "var(--input-bg)", color: "var(--text-main)"
-              }}
-            />
-          </div>
-
-          {/* ... Other fields shortened for brevity but I will include them all ... */}
-          <div style={{ marginBottom: "16px" }}>
-            <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text-secondary)", marginBottom: "6px" }}>
-              程序参数
-            </label>
-            <input
-              type="text" value={programArgs} onChange={(e) => setProgramArgs(e.target.value)}
-              placeholder="--port 8080"
+              type="text" value={startCommand} onChange={(e) => setStartCommand(e.target.value)}
+              placeholder="open-webui serve 或 /usr/local/bin/myapp --port 8080"
               style={{
                 width: "100%", padding: "10px 12px", fontSize: "14px", border: "1px solid var(--border-color)",
                 borderRadius: "8px", outline: "none", boxSizing: "border-box", backgroundColor: "var(--input-bg)", color: "var(--text-main)"
@@ -492,8 +488,8 @@ function ServiceModal({
             </div>
             {/* Health Check URL */}
             <div style={{ marginBottom: "12px" }}>
-              <label style={{ display: "block", fontSize: "13px", fontWeight: 500, marginBottom: "6px" }}>服务页面 URL</label>
-              <input type="text" value={healthUrl} onChange={(e) => setHealthUrl(e.target.value)} placeholder="http://127.0.0.1:8080/health" style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border-color)", backgroundColor: "var(--modal-bg)", color: "var(--text-main)" }} />
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 500, marginBottom: "6px" }}>Web 地址</label>
+              <input type="text" value={webUrl} onChange={(e) => setWebUrl(e.target.value)} placeholder="http://127.0.0.1:8080" style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border-color)", backgroundColor: "var(--modal-bg)", color: "var(--text-main)" }} />
             </div>
           </div>
 
@@ -964,6 +960,11 @@ function ServiceCard({ service, onToggle, onRestart, onEdit, onViewLogs, setting
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {service.icon && ICONS[service.icon] && (
+            <span style={{ color: "var(--text-secondary)", display: "flex", alignItems: "center" }}>
+              {ICONS[service.icon]}
+            </span>
+          )}
           <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 600 }}>{service.display_name || service.label.split(".").pop()}</h3>
           {service.is_loaded && (
             <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: service.pid ? "#22c55e" : "#f59e0b", animation: service.pid ? "pulse 2s infinite" : "none" }} />

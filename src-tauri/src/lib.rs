@@ -89,6 +89,19 @@ fn get_preset_services() -> Vec<PresetService> {
             run_at_load: true,
             keep_alive: true,
         },
+        PresetService {
+            label: "com.user.openwebui".to_string(),
+            display_name: "OpenWebUI".to_string(),
+            description: "开源 AI 对话界面".to_string(),
+            icon: "terminal".to_string(),
+            program: None,
+            program_arguments: Some(vec!["open-webui".to_string(), "serve".to_string()]),
+            working_directory: None,
+            port: Some(3000),
+            health_url: Some("http://127.0.0.1:8080".to_string()),
+            run_at_load: true,
+            keep_alive: true,
+        },
     ]
 }
 
