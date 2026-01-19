@@ -148,12 +148,55 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
     </svg>
   ),
+  app: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <path d="M9 9h6v6H9z" />
+      <line x1="9" y1="3" x2="9" y2="21" />
+      <line x1="15" y1="3" x2="15" y2="21" />
+      <line x1="3" y1="9" x2="21" y2="9" />
+      <line x1="3" y1="15" x2="21" y2="15" />
+    </svg>
+  ),
   github: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
     </svg>
   ),
 };
+
+// Toast 提示组件
+function Toast({ message, type, onClose }: { message: string; type: "success" | "error"; onClose: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: "20px",
+        right: "20px",
+        zIndex: 10000,
+        padding: "12px 20px",
+        borderRadius: "8px",
+        backgroundColor: type === "success" ? "#10b981" : "#ef4444",
+        color: "#fff",
+        fontSize: "14px",
+        fontWeight: 500,
+        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+        animation: "slideInRight 0.3s ease-out",
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+      }}
+    >
+      <span>{type === "success" ? "✓" : "✗"}</span>
+      <span>{message}</span>
+    </div>
+  );
+}
 
 function ServiceModal({
   isOpen,
@@ -431,7 +474,13 @@ function ServiceModal({
             <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
               <button
                 type="button"
-                onClick={() => setIsAppMode(false)}
+                onClick={() => {
+                  setIsAppMode(false);
+                  // 切换到服务模式时，如果当前是app图标，改为terminal图标
+                  if (icon === "app") {
+                    setIcon("terminal");
+                  }
+                }}
                 style={{
                   flex: 1,
                   padding: "10px",
@@ -448,7 +497,11 @@ function ServiceModal({
               </button>
               <button
                 type="button"
-                onClick={() => setIsAppMode(true)}
+                onClick={() => {
+                  setIsAppMode(true);
+                  // 切换到应用模式时，自动设置为app图标
+                  setIcon("app");
+                }}
                 style={{
                   flex: 1,
                   padding: "10px",
@@ -499,7 +552,7 @@ function ServiceModal({
                   type="text"
                   value={appPath}
                   onChange={(e) => setAppPath(e.target.value)}
-                  placeholder="Google Chrome.app"
+                  placeholder="应用名.app（如：Google Chrome.app）"
                   style={{
                     flex: 1,
                     padding: "10px 12px",
@@ -1136,16 +1189,6 @@ function ServiceCard({ service, onToggle, onRestart, onEdit, onViewLogs, setting
         </div>
       </div>
       <div style={{ display: "flex", gap: "8px" }}>
-        {/* Open app button */}
-        {service.app_path && (
-          <button onClick={() => invoke("open_url", { url: service.app_path! })} title="打开应用" style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-              <line x1="8" y1="21" x2="16" y2="21" />
-              <line x1="12" y1="17" x2="12" y2="21" />
-            </svg>
-          </button>
-        )}
         {/* Open service page button */}
         {(service.port || service.health_url) && (
           <button onClick={openServicePage} title="打开服务页面" style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}>
@@ -1185,6 +1228,7 @@ function App() {
   const [logService, setLogService] = useState<LaunchAgent | null>(null);
   const [portConflict, setPortConflict] = useState<{ service: LaunchAgent; pid: number } | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [appSettings, setAppSettings] = useState<AppSettings>({
     theme_color: "#3b82f6",
     opacity: 0.8,
@@ -1211,7 +1255,37 @@ function App() {
   const fetchServices = async () => {
     try {
       const result = await invoke<LaunchAgent[]>("get_services");
-      setServices(result);
+
+      // 检测应用模式的服务运行状态
+      const servicesWithAppStatus = await Promise.all(
+        result.map(async (service) => {
+          if (service.app_path) {
+            // 应用模式：使用 check_app_running 检测
+            let appName = service.app_path;
+            // 去掉 .app 后缀作为进程名
+            if (appName.toLowerCase().endsWith('.app')) {
+              appName = appName.substring(0, appName.length - 4);
+            }
+
+            try {
+              const isRunning = await invoke<boolean>("check_app_running", { appName });
+              return {
+                ...service,
+                is_loaded: isRunning,
+                pid: isRunning ? 1 : null, // 应用模式下不显示具体 PID，只显示运行状态
+              };
+            } catch (e) {
+              console.error(`检测应用 ${appName} 状态失败:`, e);
+              return service;
+            }
+          } else {
+            // 服务模式：已经由后端通过 launchctl 检测
+            return service;
+          }
+        })
+      );
+
+      setServices(servicesWithAppStatus);
     } catch (e) {
       console.error(e);
     }
@@ -1249,25 +1323,110 @@ function App() {
 
   const handleToggle = async (service: LaunchAgent) => {
     try {
-      if (service.is_loaded) {
-        await invoke("unload_service", { plistPath: service.file_path });
-      } else {
-        if (service.port) {
-          const isOpen = await invoke<boolean>("check_port", { port: service.port });
-          if (isOpen) {
-            const pid = await invoke<number | null>("get_process_by_port", { port: service.port });
-            if (pid) {
-              setPortConflict({ service, pid });
-              return;
-            }
+      // 判断是应用模式还是服务模式
+      if (service.app_path) {
+        // 应用模式：直接打开应用
+        if (!service.is_loaded) {
+          let appPath = service.app_path;
+
+          // 确保路径以 .app 结尾
+          if (!appPath.toLowerCase().endsWith('.app')) {
+            appPath = `${appPath}.app`;
+          }
+
+          const fullAppPath = `/Applications/${appPath}`;
+
+          try {
+            await invoke("open_url", { url: fullAppPath });
+            setToast({ message: `应用 ${appPath} 启动成功`, type: "success" });
+            // 立即刷新状态以显示停止按钮
+            setTimeout(fetchServices, 800);
+          } catch (e) {
+            console.error("启动应用失败:", e);
+            setToast({ message: `启动应用失败: ${String(e)}`, type: "error" });
+          }
+        } else {
+          // 应用模式下停止应用（通过 quit 命令）
+          try {
+            const appName = service.app_path.replace(/\.app$/i, '');
+            await invoke("quit_app", { appName });
+            setToast({ message: "应用已停止", type: "success" });
+            setTimeout(fetchServices, 800);
+          } catch (e) {
+            console.error("停止应用失败:", e);
+            setToast({ message: `无法停止应用: ${String(e)}`, type: "error" });
           }
         }
-        await invoke("load_service", { plistPath: service.file_path });
+      } else {
+        // 服务模式：使用 launchctl
+        if (service.is_loaded) {
+          await invoke("unload_service", { plistPath: service.file_path });
+          setToast({ message: "服务已停止", type: "success" });
+          fetchServices();
+        } else {
+          if (service.port) {
+            const isOpen = await invoke<boolean>("check_port", { port: service.port });
+            if (isOpen) {
+              const pid = await invoke<number | null>("get_process_by_port", { port: service.port });
+              if (pid) {
+                setPortConflict({ service, pid });
+                return;
+              }
+            }
+          }
+          await invoke("load_service", { plistPath: service.file_path });
+          setToast({ message: "服务已启动", type: "success" });
+          fetchServices();
+        }
       }
-      fetchServices();
     } catch (e) {
       console.error("启动/停止失败:", e);
-      alert("操作失败: " + String(e));
+      setToast({ message: `操作失败: ${String(e)}`, type: "error" });
+    }
+  };
+
+  const handleRestart = async (service: LaunchAgent) => {
+    try {
+      // 判断是应用模式还是服务模式
+      if (service.app_path) {
+        // 应用模式：先关闭再打开
+        let appPath = service.app_path;
+
+        // 确保路径以 .app 结尾
+        if (!appPath.toLowerCase().endsWith('.app')) {
+          appPath = `${appPath}.app`;
+        }
+
+        const appName = appPath.replace(/\.app$/i, '');
+
+        try {
+          await invoke("quit_app", { appName });
+          // 等待应用完全关闭
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (e) {
+          console.warn("应用可能未在运行:", e);
+        }
+
+        // 重新打开应用
+        const fullAppPath = `/Applications/${appPath}`;
+
+        try {
+          await invoke("open_url", { url: fullAppPath });
+          setToast({ message: `应用 ${appPath} 重启成功`, type: "success" });
+          setTimeout(fetchServices, 800);
+        } catch (e) {
+          console.error("重启应用失败:", e);
+          setToast({ message: `重启应用失败: ${String(e)}`, type: "error" });
+        }
+      } else {
+        // 服务模式：使用 restart_service
+        await invoke("restart_service", { plistPath: service.file_path });
+        setToast({ message: "服务重启成功", type: "success" });
+        fetchServices();
+      }
+    } catch (e) {
+      console.error("重启失败:", e);
+      setToast({ message: `重启失败: ${String(e)}`, type: "error" });
     }
   };
 
@@ -1300,7 +1459,7 @@ function App() {
       <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis]}>
           <SortableContext items={services.map(s => s.label)} strategy={verticalListSortingStrategy}>
-            {services.map(s => <ServiceCard key={s.label} service={s} onToggle={() => handleToggle(s)} onRestart={() => invoke("restart_service", { plistPath: s.file_path }).then(fetchServices)} onEdit={() => { setEditingService(s); setIsModalOpen(true); }} onViewLogs={() => { setLogService(s); setIsLogPanelOpen(true); }} settings={safeSettings} />)}
+            {services.map(s => <ServiceCard key={s.label} service={s} onToggle={() => handleToggle(s)} onRestart={() => handleRestart(s)} onEdit={() => { setEditingService(s); setIsModalOpen(true); }} onViewLogs={() => { setLogService(s); setIsLogPanelOpen(true); }} settings={safeSettings} />)}
           </SortableContext>
         </DndContext>
       </div>
@@ -1361,6 +1520,8 @@ function App() {
           </div>
         </div>
       )}
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 }

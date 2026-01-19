@@ -44,6 +44,8 @@ pub struct LaunchAgent {
     pub port: Option<u16>,
     pub health_url: Option<String>,
     pub order: Option<i32>,
+    pub project_path: Option<String>,
+    pub app_path: Option<String>, // 用于标识是否为应用模式
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -55,6 +57,7 @@ pub struct ServiceMetadata {
     pub health_url: Option<String>,
     pub order: Option<i32>,
     pub project_path: Option<String>,
+    pub app_path: Option<String>, // 用于标识是否为应用模式
 }
 
 /// Preset service template
@@ -255,6 +258,8 @@ fn parse_plist_file(path: &PathBuf) -> Option<LaunchAgent> {
         port: None,
         health_url: None,
         order: None,
+        project_path: None,
+        app_path: None,
     })
 }
 
@@ -343,6 +348,8 @@ fn get_services() -> Result<Vec<LaunchAgent>, String> {
                         agent.port = meta.port;
                         agent.health_url = meta.health_url.clone();
                         agent.order = meta.order;
+                        agent.project_path = meta.project_path.clone();
+                        agent.app_path = meta.app_path.clone();
                     }
                     agents.push(agent);
                 }
@@ -674,6 +681,56 @@ fn open_url(url: String) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[tauri::command]
+fn check_app_running(app_name: String) -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    {
+        // 使用 AppleScript 检测应用是否在运行，这是最可靠的方法
+        let script = format!("tell application \"System Events\" to (name of processes) contains \"{}\"", app_name);
+        let output = Command::new("osascript")
+            .arg("-e")
+            .arg(&script)
+            .output()
+            .map_err(|e| e.to_string())?;
+
+        if output.status.success() {
+            let result = String::from_utf8_lossy(&output.stdout);
+            Ok(result.trim() == "true")
+        } else {
+            Ok(false)
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(false)
+    }
+}
+
+#[tauri::command]
+fn quit_app(app_name: String) -> Result<String, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let output = Command::new("osascript")
+            .arg("-e")
+            .arg(format!("quit app \"{}\"", app_name))
+            .output()
+            .map_err(|e| e.to_string())?;
+
+        if output.status.success() {
+            Ok("Application quit successfully".to_string())
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(format!("Failed to quit application: {}", stderr))
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("Not supported on this platform".to_string())
+    }
 }
 
 #[tauri::command]
@@ -1333,6 +1390,8 @@ pub fn run() {
             check_port,
             check_health,
             open_url,
+            check_app_running,
+            quit_app,
             save_service_metadata,
             get_service_metadata,
             get_all_metadata_map,
