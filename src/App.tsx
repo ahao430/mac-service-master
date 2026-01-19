@@ -272,7 +272,16 @@ function ServiceModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!label.trim()) return;
+
+    // 应用模式时自动生成 label
+    let finalLabel = label.trim();
+    if (isAppMode && !editingService) {
+      // 新建应用模式服务时，自动生成标识符
+      const appName = appPath.trim().replace(/\.app$/i, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+      finalLabel = `com.user.${appName}`;
+    }
+
+    if (!finalLabel && !isAppMode) return;
     if (!isAppMode && !startCommand.trim()) return;
     if (isAppMode && !appPath.trim()) return;
 
@@ -293,7 +302,7 @@ function ServiceModal({
       }
 
       const config: ServiceConfig = {
-        label: label.trim(),
+        label: finalLabel,
         program: program,
         program_arguments: programArguments,
         run_at_load: runAtLoad || null,
@@ -317,6 +326,7 @@ function ServiceModal({
       onClose();
     } catch (e) {
       console.error("Failed to save service:", e);
+      alert("保存失败: " + String(e));
     } finally {
       setSaving(false);
     }
@@ -391,26 +401,23 @@ function ServiceModal({
 
         <form onSubmit={handleSubmit}>
           {/* 标识符 */}
-          <div style={{ marginBottom: "16px" }}>
-            <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text-secondary)", marginBottom: "6px" }}>
-              标识符 <span style={{ color: "#ef4444" }}>*</span>
-            </label>
-            <input
-              type="text" value={label} onChange={(e) => setLabel(e.target.value)}
-              disabled={!!editingService} placeholder="com.company.service"
-              style={{
-                width: "100%", padding: "10px 12px", fontSize: "14px", border: "1px solid var(--border-color)",
-                borderRadius: "8px", outline: "none", boxSizing: "border-box",
-                backgroundColor: editingService ? "var(--border-color)" : "var(--input-bg)",
-                color: "var(--text-main)"
-              }}
-            />
-            {isAppMode && (
-              <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>
-                💡 应用模式不需要填写服务名，系统会自动生成
-              </div>
-            )}
-          </div>
+          {!isAppMode && (
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text-secondary)", marginBottom: "6px" }}>
+                标识符 <span style={{ color: "#ef4444" }}>*</span>
+              </label>
+              <input
+                type="text" value={label} onChange={(e) => setLabel(e.target.value)}
+                disabled={!!editingService} placeholder="com.company.service"
+                style={{
+                  width: "100%", padding: "10px 12px", fontSize: "14px", border: "1px solid var(--border-color)",
+                  borderRadius: "8px", outline: "none", boxSizing: "border-box",
+                  backgroundColor: editingService ? "var(--border-color)" : "var(--input-bg)",
+                  color: "var(--text-main)"
+                }}
+              />
+            </div>
+          )}
 
           {/* 启动方式切换 */}
           <div style={{ marginBottom: "16px" }}>
@@ -1110,7 +1117,7 @@ function ServiceCard({ service, onToggle, onRestart, onEdit, onViewLogs, setting
         {/* Open service page button */}
         {(service.port || service.health_url) && (
           <button onClick={openServicePage} title="打开服务页面" style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
+            {ICONS.globe}
           </button>
         )}
         {/* Open project folder button */}
@@ -1210,16 +1217,26 @@ function App() {
 
   const handleToggle = async (service: LaunchAgent) => {
     try {
-      if (service.is_loaded) await invoke("unload_service", { plistPath: service.file_path });
-      else {
+      if (service.is_loaded) {
+        await invoke("unload_service", { plistPath: service.file_path });
+      } else {
         if (service.port) {
           const isOpen = await invoke<boolean>("check_port", { port: service.port });
-          if (isOpen) { const pid = await invoke<number | null>("get_process_by_port", { port: service.port }); if (pid) { setPortConflict({ service, pid }); return; } }
+          if (isOpen) {
+            const pid = await invoke<number | null>("get_process_by_port", { port: service.port });
+            if (pid) {
+              setPortConflict({ service, pid });
+              return;
+            }
+          }
         }
         await invoke("load_service", { plistPath: service.file_path });
       }
       fetchServices();
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error("启动/停止失败:", e);
+      alert("操作失败: " + String(e));
+    }
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -1243,9 +1260,9 @@ function App() {
         <button onClick={() => invoke("open_url", { url: "https://github.com/ahao430/mac-service-master" })} title="GitHub 仓库" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "6px", borderRadius: "6px", backgroundColor: "var(--border-color)", color: "var(--text-main)", border: "none", cursor: "pointer", marginRight: "auto" }}>
           {ICONS.github}
         </button>
-        <button onClick={() => { setEditingService(null); setIsModalOpen(true); }} style={{ padding: "6px 12px", borderRadius: "6px", backgroundColor: safeSettings.theme_color, color: "#fff", border: "none", cursor: "pointer" }}>新建服务</button>
-        <button onClick={fetchServices} style={{ padding: "6px 12px", borderRadius: "6px", backgroundColor: "var(--border-color)", color: "var(--text-main)", border: "none", cursor: "pointer" }}>刷新</button>
-        <button onClick={() => setIsSettingsOpen(true)} style={{ padding: "6px 12px", borderRadius: "6px", backgroundColor: "var(--border-color)", color: "var(--text-main)", border: "none", cursor: "pointer" }}>⚙</button>
+        <button onClick={() => { setEditingService(null); setIsModalOpen(true); }} style={{ padding: "6px 12px", borderRadius: "6px", backgroundColor: safeSettings.theme_color, color: "#fff", border: "none", cursor: "pointer", fontSize: "13px" }}>新建服务</button>
+        <button onClick={fetchServices} style={{ padding: "6px 12px", borderRadius: "6px", backgroundColor: "var(--border-color)", color: "var(--text-main)", border: "none", cursor: "pointer", fontSize: "13px" }}>刷新</button>
+        <button onClick={() => setIsSettingsOpen(true)} style={{ padding: "6px 12px", borderRadius: "6px", backgroundColor: "var(--border-color)", color: "var(--text-main)", border: "none", cursor: "pointer", fontSize: "16px", fontWeight: "bold" }}>⚙</button>
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>

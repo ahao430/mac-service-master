@@ -1353,13 +1353,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-
-#[tauri::command]
-fn set_auto_launch(enable: bool) -> Result<String, String> {
-    use tauri_plugin_autostart::MacosLauncher;
-    use tauri_plugin_autostart::ManagerExt;
-    
-    // 这里需要通过 AppHandle 访问，暂时返回提示
-    // 实际实现需要在 main.rs 中处理
-    Ok(format!("Auto launch set to: {}", enable))
-}
