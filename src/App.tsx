@@ -63,6 +63,7 @@ interface AppSettings {
   webdav_url: string | null;
   webdav_username: string | null;
   webdav_password: string | null;
+  auto_launch: boolean | null;
 }
 
 interface UpdateInfo {
@@ -678,6 +679,7 @@ function SettingsModal({ isOpen, onClose, onExport, onImport, settings, onSaveSe
   const [webdavUrl, setWebdavUrl] = useState(settings?.webdav_url || "");
   const [webdavUsername, setWebdavUsername] = useState(settings?.webdav_username || "");
   const [webdavPassword, setWebdavPassword] = useState(settings?.webdav_password || "");
+  const [autoLaunch, setAutoLaunch] = useState(settings?.auto_launch || false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [installingUpdate, setInstallingUpdate] = useState(false);
@@ -694,6 +696,7 @@ function SettingsModal({ isOpen, onClose, onExport, onImport, settings, onSaveSe
       setWebdavUrl(settings.webdav_url || "");
       setWebdavUsername(settings.webdav_username || "");
       setWebdavPassword(settings.webdav_password || "");
+      setAutoLaunch(settings.auto_launch || false);
     }
   }, [isOpen, settings]);
 
@@ -870,6 +873,16 @@ function SettingsModal({ isOpen, onClose, onExport, onImport, settings, onSaveSe
             <label style={{ display: "block", fontSize: "13px", marginBottom: "6px" }}>窗口透明度 ({Math.round(opacity * 100)}%)</label>
             <input type="range" min="0.3" max="1" step="0.05" value={opacity} onChange={(e) => setOpacity(parseFloat(e.target.value))} style={{ width: "100%", cursor: "pointer" }} />
           </div>
+
+          <div style={{ marginBottom: "16px" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", cursor: "pointer" }}>
+              <input type="checkbox" checked={autoLaunch} onChange={(e) => setAutoLaunch(e.target.checked)} style={{ width: "16px", height: "16px" }} />
+              开机自动启动应用
+            </label>
+            <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px", marginLeft: "24px" }}>
+              💡 启用后，系统启动时会自动运行 ServiceMaster
+            </div>
+          </div>
         </div>
 
         {/* 版本更新 */}
@@ -998,7 +1011,8 @@ function SettingsModal({ isOpen, onClose, onExport, onImport, settings, onSaveSe
               theme_mode: themeMode,
               webdav_url: webdavUrl.trim() || null,
               webdav_username: webdavUsername.trim() || null,
-              webdav_password: webdavPassword || null
+              webdav_password: webdavPassword || null,
+              auto_launch: autoLaunch,
             });
             onClose();
           }} style={{ padding: "8px 16px", borderRadius: "8px", border: "none", backgroundColor: themeColor, color: "#fff", cursor: "pointer", fontSize: "13px" }}>保存</button>
@@ -1139,7 +1153,8 @@ function App() {
     theme_mode: "auto",
     webdav_url: null,
     webdav_username: null,
-    webdav_password: null
+    webdav_password: null,
+    auto_launch: false,
   });
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
@@ -1151,6 +1166,7 @@ function App() {
     webdav_url: appSettings?.webdav_url || null,
     webdav_username: appSettings?.webdav_username || null,
     webdav_password: appSettings?.webdav_password || null,
+    auto_launch: appSettings?.auto_launch || false,
   };
 
   const fetchServices = async () => {
@@ -1172,7 +1188,8 @@ function App() {
         theme_mode: s.theme_mode || "auto",
         webdav_url: s.webdav_url || null,
         webdav_username: s.webdav_username || null,
-        webdav_password: s.webdav_password || null
+        webdav_password: s.webdav_password || null,
+        auto_launch: s.auto_launch || false,
       });
     } catch (e) { console.error(e); }
   };

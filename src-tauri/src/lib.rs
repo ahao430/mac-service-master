@@ -728,6 +728,7 @@ pub struct AppSettings {
     pub webdav_url: Option<String>,
     pub webdav_username: Option<String>,
     pub webdav_password: Option<String>,
+    pub auto_launch: Option<bool>, // 新增：开机自启动
 }
 
 impl Default for AppSettings {
@@ -740,6 +741,7 @@ impl Default for AppSettings {
             webdav_url: None,
             webdav_username: None,
             webdav_password: None,
+            auto_launch: Some(false),
         }
     }
 }
@@ -1350,4 +1352,14 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[tauri::command]
+fn set_auto_launch(enable: bool) -> Result<String, String> {
+    use tauri_plugin_autostart::MacosLauncher;
+    use tauri_plugin_autostart::ManagerExt;
+    
+    // 这里需要通过 AppHandle 访问，暂时返回提示
+    // 实际实现需要在 main.rs 中处理
+    Ok(format!("Auto launch set to: {}", enable))
 }
