@@ -1123,12 +1123,19 @@ function ServiceCard({ service, onToggle, onRestart, onEdit, onViewLogs, setting
   useEffect(() => {
     if (!service.is_loaded || !service.port) { setPortStatus(null); return; }
     const check = async () => {
-      try { setPortStatus(await invoke<boolean>("check_port", { port: service.port! })); }
+      try {
+        const isOpen = await invoke<boolean>("check_port", { port: service.port! });
+        setPortStatus(isOpen);
+      }
       catch { setPortStatus(null); }
     };
-    check();
+    // 延迟首次检查，给服务时间启动端口监听
+    const initialTimer = setTimeout(check, 2000);
     const interval = setInterval(check, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
   }, [service.is_loaded, service.port]);
 
   // Check health status
@@ -1453,7 +1460,7 @@ function App() {
         </button>
         <button onClick={() => { setEditingService(null); setIsModalOpen(true); }} style={{ padding: "6px 12px", borderRadius: "6px", backgroundColor: safeSettings.theme_color, color: "#fff", border: "none", cursor: "pointer", fontSize: "13px" }}>新建服务</button>
         <button onClick={fetchServices} style={{ padding: "6px 12px", borderRadius: "6px", backgroundColor: "var(--border-color)", color: "var(--text-main)", border: "none", cursor: "pointer", fontSize: "13px" }}>刷新</button>
-        <button onClick={() => setIsSettingsOpen(true)} style={{ padding: "6px 12px", borderRadius: "6px", backgroundColor: "var(--border-color)", color: "var(--text-main)", border: "none", cursor: "pointer", fontSize: "16px", fontWeight: "bold" }}>⚙</button>
+        <button onClick={() => setIsSettingsOpen(true)} style={{ padding: "6px 12px", borderRadius: "6px", backgroundColor: "var(--border-color)", color: "var(--text-main)", border: "none", cursor: "pointer", fontSize: "20px", fontWeight: "bold" }}>⚙</button>
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
@@ -1504,7 +1511,16 @@ function App() {
           }
         }}
         settings={safeSettings}
-        onSaveSettings={(s) => invoke("save_app_settings", { settings: s }).then(() => setAppSettings(s))}
+        onSaveSettings={(s) => {
+          invoke("save_app_settings", { settings: s })
+            .then(() => {
+              setAppSettings(s);
+              setToast({ message: "设置保存成功", type: "success" });
+            })
+            .catch((e) => {
+              setToast({ message: `保存失败: ${String(e)}`, type: "error" });
+            });
+        }}
         onRefreshServices={fetchServices}
       />
 
