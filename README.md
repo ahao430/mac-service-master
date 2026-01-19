@@ -4,13 +4,13 @@
 
 ## 📸 应用截图
 
-![主界面](docs/images/main-interface.png)
+![主界面](docs/images/main.png)
 *主界面 - 服务列表管理*
 
-![编辑界面](docs/images/edit-interface.png)
+![编辑界面](docs/images/edit.png)
 *编辑界面 - 双启动模式支持*
 
-![设置界面](docs/images/settings-interface.png)
+![设置界面](docs/images/setting.png)
 *设置界面 - 主题与 WebDAV 配置*
 
 ## 📚 文档
