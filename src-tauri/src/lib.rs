@@ -71,6 +71,7 @@ pub struct PresetService {
     pub health_url: Option<String>,
     pub run_at_load: bool,
     pub keep_alive: bool,
+    pub app_path: Option<String>, // 新增：用于标识是否为应用模式
 }
 
 /// Get built-in preset services
@@ -88,6 +89,7 @@ fn get_preset_services() -> Vec<PresetService> {
             health_url: Some("http://127.0.0.1:8317/management.html".to_string()),
             run_at_load: true,
             keep_alive: true,
+            app_path: None,
         },
         PresetService {
             label: "com.user.openwebui".to_string(),
@@ -101,6 +103,21 @@ fn get_preset_services() -> Vec<PresetService> {
             health_url: Some("http://127.0.0.1:8080".to_string()),
             run_at_load: true,
             keep_alive: true,
+            app_path: None,
+        },
+        PresetService {
+            label: "com.user.antigravitytools".to_string(),
+            display_name: "AntigravityTools".to_string(),
+            description: "Antigravity 开发工具".to_string(),
+            icon: "cpu".to_string(),
+            program: Some("open".to_string()),
+            program_arguments: Some(vec!["-a".to_string(), "AntigravityTools".to_string()]),
+            working_directory: None,
+            port: None,
+            health_url: None,
+            run_at_load: false,
+            keep_alive: false,
+            app_path: Some("AntigravityTools".to_string()),
         },
     ]
 }

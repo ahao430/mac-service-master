@@ -40,6 +40,7 @@ interface LaunchAgent {
   port: number | null;
   health_url: string | null;
   project_path: string | null;
+  app_path: string | null;
   order: number | null;
 }
 
@@ -50,6 +51,7 @@ interface ServiceMetadata {
   port: number | null;
   health_url: string | null;
   project_path: string | null;
+  app_path: string | null;
   order: number | null;
 }
 
@@ -94,6 +96,7 @@ interface PresetService {
   health_url: string | null;
   run_at_load: boolean;
   keep_alive: boolean;
+  app_path: string | null; // 新增：应用路径
 }
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -166,6 +169,8 @@ function ServiceModal({
 }) {
   const [label, setLabel] = useState("");
   const [startCommand, setStartCommand] = useState("");
+  const [appPath, setAppPath] = useState("");
+  const [isAppMode, setIsAppMode] = useState(false); // true: 启动应用, false: 启动命令
   const [runAtLoad, setRunAtLoad] = useState(false);
   const [keepAlive, setKeepAlive] = useState(false);
   const [workingDir, setWorkingDir] = useState("");
@@ -194,9 +199,18 @@ function ServiceModal({
     setDescription(preset.description);
     setIcon(preset.icon);
 
-    // 合并 program 和 program_arguments 为启动命令
-    const command = preset.program_arguments?.join(" ") || preset.program || "";
-    setStartCommand(command);
+    // 判断是否为应用模式
+    if (preset.app_path) {
+      setIsAppMode(true);
+      setAppPath(preset.app_path);
+      setStartCommand("");
+    } else {
+      setIsAppMode(false);
+      setAppPath("");
+      // 合并 program 和 program_arguments 为启动命令
+      const command = preset.program_arguments?.join(" ") || preset.program || "";
+      setStartCommand(command);
+    }
 
     setWorkingDir(preset.working_directory || "");
     setPort(preset.port?.toString() || "");
@@ -210,11 +224,20 @@ function ServiceModal({
     if (editingService) {
       setLabel(editingService.label);
 
-      // 合并 program 和 program_arguments 为启动命令
-      const commandParts = [];
-      if (editingService.program) commandParts.push(editingService.program);
-      if (editingService.program_arguments) commandParts.push(...editingService.program_arguments);
-      setStartCommand(commandParts.join(" "));
+      // 判断是应用模式还是命令模式
+      if (editingService.app_path) {
+        setIsAppMode(true);
+        setAppPath(editingService.app_path);
+        setStartCommand("");
+      } else {
+        setIsAppMode(false);
+        setAppPath("");
+        // 合并 program 和 program_arguments 为启动命令
+        const commandParts = [];
+        if (editingService.program) commandParts.push(editingService.program);
+        if (editingService.program_arguments) commandParts.push(...editingService.program_arguments);
+        setStartCommand(commandParts.join(" "));
+      }
 
       setRunAtLoad(editingService.run_at_load || false);
       setKeepAlive(editingService.keep_alive || false);
@@ -230,6 +253,8 @@ function ServiceModal({
     } else {
       setLabel("");
       setStartCommand("");
+      setAppPath("");
+      setIsAppMode(false);
       setRunAtLoad(false);
       setKeepAlive(false);
       setWorkingDir("");
@@ -247,13 +272,24 @@ function ServiceModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!label.trim()) return;
+    if (!isAppMode && !startCommand.trim()) return;
+    if (isAppMode && !appPath.trim()) return;
 
     setSaving(true);
     try {
-      // 将启动命令拆分为 program 和 program_arguments
-      const commandParts = startCommand.trim().split(/\s+/);
-      const program = commandParts.length > 0 ? commandParts[0] : null;
-      const programArguments = commandParts.length > 1 ? commandParts.slice(1) : null;
+      let program = null;
+      let programArguments = null;
+
+      if (isAppMode) {
+        // 应用模式：使用 open 命令启动应用
+        program = "open";
+        programArguments = ["-a", appPath.trim()];
+      } else {
+        // 命令模式：将启动命令拆分为 program 和 program_arguments
+        const commandParts = startCommand.trim().split(/\s+/);
+        program = commandParts.length > 0 ? commandParts[0] : null;
+        programArguments = commandParts.length > 1 ? commandParts.slice(1) : null;
+      }
 
       const config: ServiceConfig = {
         label: label.trim(),
@@ -273,6 +309,7 @@ function ServiceModal({
         port: port.trim() ? parseInt(port.trim(), 10) : null,
         health_url: webUrl.trim() || null,
         project_path: projectPath.trim() || null,
+        app_path: isAppMode ? appPath.trim() || null : null,
         order: editingService?.order ?? null,
       };
       await onSave(config, metadata, editingService?.file_path);
@@ -352,7 +389,7 @@ function ServiceModal({
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* Label */}
+          {/* 标识符 */}
           <div style={{ marginBottom: "16px" }}>
             <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text-secondary)", marginBottom: "6px" }}>
               标识符 <span style={{ color: "#ef4444" }}>*</span>
@@ -367,35 +404,92 @@ function ServiceModal({
                 color: "var(--text-main)"
               }}
             />
+            {isAppMode && (
+              <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>
+                💡 应用模式不需要填写服务名，系统会自动生成
+              </div>
+            )}
           </div>
 
-          {/* 启动命令 */}
+          {/* 启动方式切换 */}
           <div style={{ marginBottom: "16px" }}>
-            <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text-secondary)", marginBottom: "6px" }}>
-              启动命令 <span style={{ color: "#ef4444" }}>*</span>
+            <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text-secondary)", marginBottom: "8px" }}>
+              启动方式 <span style={{ color: "#ef4444" }}>*</span>
             </label>
-            <input
-              type="text" value={startCommand} onChange={(e) => setStartCommand(e.target.value)}
-              placeholder="open-webui serve 或 /usr/local/bin/myapp --port 8080"
-              style={{
-                width: "100%", padding: "10px 12px", fontSize: "14px", border: "1px solid var(--border-color)",
-                borderRadius: "8px", outline: "none", boxSizing: "border-box", backgroundColor: "var(--input-bg)", color: "var(--text-main)"
-              }}
-            />
-          </div>
+            <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+              <button
+                type="button"
+                onClick={() => setIsAppMode(false)}
+                style={{
+                  flex: 1,
+                  padding: "10px",
+                  borderRadius: "8px",
+                  border: !isAppMode ? "2px solid #3b82f6" : "1px solid var(--border-color)",
+                  backgroundColor: !isAppMode ? "rgba(59, 130, 246, 0.1)" : "var(--input-bg)",
+                  color: "var(--text-main)",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: !isAppMode ? 600 : 400,
+                }}
+              >
+                💻 启动命令
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAppMode(true)}
+                style={{
+                  flex: 1,
+                  padding: "10px",
+                  borderRadius: "8px",
+                  border: isAppMode ? "2px solid #3b82f6" : "1px solid var(--border-color)",
+                  backgroundColor: isAppMode ? "rgba(59, 130, 246, 0.1)" : "var(--input-bg)",
+                  color: "var(--text-main)",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: isAppMode ? 600 : 400,
+                }}
+              >
+                📱 启动应用
+              </button>
+            </div>
 
-          <div style={{ marginBottom: "16px" }}>
-            <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text-secondary)", marginBottom: "6px" }}>
-              项目地址
-            </label>
-            <input
-              type="text" value={projectPath} onChange={(e) => setProjectPath(e.target.value)}
-              placeholder="/Users/username/workspace/myproject"
-              style={{
-                width: "100%", padding: "10px 12px", fontSize: "14px", border: "1px solid var(--border-color)",
-                borderRadius: "8px", outline: "none", boxSizing: "border-box", backgroundColor: "var(--input-bg)", color: "var(--text-main)"
-              }}
-            />
+            {isAppMode ? (
+              <input
+                type="text"
+                value={appPath}
+                onChange={(e) => setAppPath(e.target.value)}
+                placeholder="/Applications/Chrome.app 或 Google Chrome"
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  fontSize: "14px",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: "8px",
+                  outline: "none",
+                  boxSizing: "border-box",
+                  backgroundColor: "var(--input-bg)",
+                  color: "var(--text-main)"
+                }}
+              />
+            ) : (
+              <input
+                type="text"
+                value={startCommand}
+                onChange={(e) => setStartCommand(e.target.value)}
+                placeholder="open-webui serve 或 /usr/local/bin/myapp --port 8080"
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  fontSize: "14px",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: "8px",
+                  outline: "none",
+                  boxSizing: "border-box",
+                  backgroundColor: "var(--input-bg)",
+                  color: "var(--text-main)"
+                }}
+              />
+            )}
           </div>
 
           <div style={{ display: "flex", gap: "16px", marginBottom: "16px" }}>
@@ -486,10 +580,21 @@ function ServiceModal({
               <label style={{ display: "block", fontSize: "13px", fontWeight: 500, marginBottom: "6px" }}>描述</label>
               <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="服务描述..." style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border-color)", backgroundColor: "var(--modal-bg)", color: "var(--text-main)" }} />
             </div>
-            {/* Health Check URL */}
+            {/* Web URL with icon */}
             <div style={{ marginBottom: "12px" }}>
-              <label style={{ display: "block", fontSize: "13px", fontWeight: 500, marginBottom: "6px" }}>Web 地址</label>
+              <label style={{ fontSize: "13px", fontWeight: 500, marginBottom: "6px", display: "flex", alignItems: "center", gap: "6px" }}>
+                {ICONS.globe}
+                Web 地址
+              </label>
               <input type="text" value={webUrl} onChange={(e) => setWebUrl(e.target.value)} placeholder="http://127.0.0.1:8080" style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border-color)", backgroundColor: "var(--modal-bg)", color: "var(--text-main)" }} />
+            </div>
+            {/* Project Path with GitHub icon */}
+            <div style={{ marginBottom: "0" }}>
+              <label style={{ fontSize: "13px", fontWeight: 500, marginBottom: "6px", display: "flex", alignItems: "center", gap: "6px" }}>
+                {ICONS.github}
+                项目地址
+              </label>
+              <input type="text" value={projectPath} onChange={(e) => setProjectPath(e.target.value)} placeholder="/Users/username/workspace/myproject" style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border-color)", backgroundColor: "var(--modal-bg)", color: "var(--text-main)" }} />
             </div>
           </div>
 
@@ -504,7 +609,7 @@ function ServiceModal({
                     <button type="button" onClick={() => setShowDeleteConfirm(false)} style={{ padding: "6px 12px", backgroundColor: "var(--modal-bg)", color: "var(--text-main)", border: "1px solid var(--border-color)", borderRadius: "6px", cursor: "pointer" }}>取消</button>
                   </>
                 ) : (
-                  <button type="button" onClick={() => setShowDeleteConfirm(true)} style={{ padding: "8px 16px", backgroundColor: "transparent", color: "#ef4444", border: "1px solid #ef4444", borderRadius: "8px", cursor: "pointer" }}>删除服务</button>
+                  <button type="button" onClick={() => setShowDeleteConfirm(true)} style={{ padding: "8px 16px", backgroundColor: "transparent", color: "#ef4444", border: "1px solid #ef4444", borderRadius: "8px", cursor: "pointer" }}>删除配置</button>
                 )}
               </div>
             ) : <div />}
@@ -978,6 +1083,16 @@ function ServiceCard({ service, onToggle, onRestart, onEdit, onViewLogs, setting
         </div>
       </div>
       <div style={{ display: "flex", gap: "8px" }}>
+        {/* Open app button */}
+        {service.app_path && (
+          <button onClick={() => invoke("open_url", { url: service.app_path! })} title="打开应用" style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+              <line x1="8" y1="21" x2="16" y2="21" />
+              <line x1="12" y1="17" x2="12" y2="21" />
+            </svg>
+          </button>
+        )}
         {/* Open service page button */}
         {(service.port || service.health_url) && (
           <button onClick={openServicePage} title="打开服务页面" style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}>

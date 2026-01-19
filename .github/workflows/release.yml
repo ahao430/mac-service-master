@@ -46,6 +46,25 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
+      - name: Extract changelog for current version
+        id: changelog
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION_NO_V="${VERSION#v}"
+
+          # Extract the section for this version from CHANGELOG.md
+          CHANGELOG=$(awk "/## \[$VERSION_NO_V\]/,/## \[/" CHANGELOG.md | sed '$d' | tail -n +2)
+
+          # If extraction failed, use default message
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="See the assets below for installation files."
+          fi
+
+          # Save to output (handle multiline)
+          echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Build and Release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -54,8 +73,8 @@ jobs:
           TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'Service Master ${{ github.ref_name }}'
-          releaseBody: 'See the assets below for installation files.'
+          releaseName: 'ServiceMaster ${{ github.ref_name }}'
+          releaseBody: ${{ steps.changelog.outputs.RELEASE_NOTES }}
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
