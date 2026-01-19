@@ -203,7 +203,9 @@ function ServiceModal({
     // 判断是否为应用模式
     if (preset.app_path) {
       setIsAppMode(true);
-      setAppPath(preset.app_path);
+      // 移除 /Applications/ 前缀
+      const appName = preset.app_path.replace(/^\/Applications\//, '');
+      setAppPath(appName);
       setStartCommand("");
     } else {
       setIsAppMode(false);
@@ -228,7 +230,9 @@ function ServiceModal({
       // 判断是应用模式还是命令模式
       if (editingService.app_path) {
         setIsAppMode(true);
-        setAppPath(editingService.app_path);
+        // 移除 /Applications/ 前缀显示
+        const appName = editingService.app_path.replace(/^\/Applications\//, '');
+        setAppPath(appName);
         setStartCommand("");
       } else {
         setIsAppMode(false);
@@ -291,9 +295,10 @@ function ServiceModal({
       let programArguments = null;
 
       if (isAppMode) {
-        // 应用模式：使用 open 命令启动应用
+        // 应用模式：使用 open 命令启动应用，添加 /Applications/ 前缀
         program = "open";
-        programArguments = ["-a", appPath.trim()];
+        const fullAppPath = `/Applications/${appPath.trim()}`;
+        programArguments = ["-a", fullAppPath];
       } else {
         // 命令模式：将启动命令拆分为 program 和 program_arguments
         const commandParts = startCommand.trim().split(/\s+/);
@@ -355,12 +360,30 @@ function ServiceModal({
           overflowY: "auto",
           boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
           color: "var(--text-main)",
+          position: "relative",
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 style={{ margin: "0 0 20px 0", fontSize: "18px", fontWeight: 600 }}>
-          {editingService ? "编辑服务" : "新建服务"}
-        </h2>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+          <h2 style={{ margin: 0, fontSize: "18px", fontWeight: 600 }}>
+            {editingService ? "编辑服务" : "新建服务"}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              background: "transparent",
+              border: "none",
+              fontSize: "24px",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+              padding: "0",
+              lineHeight: "1",
+            }}
+          >
+            ✕
+          </button>
+        </div>
 
         {/* Preset Templates - only show when creating new service */}
         {!editingService && presets.length > 0 && (
@@ -400,26 +423,7 @@ function ServiceModal({
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* 标识符 */}
-          {!isAppMode && (
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text-secondary)", marginBottom: "6px" }}>
-                标识符 <span style={{ color: "#ef4444" }}>*</span>
-              </label>
-              <input
-                type="text" value={label} onChange={(e) => setLabel(e.target.value)}
-                disabled={!!editingService} placeholder="com.company.service"
-                style={{
-                  width: "100%", padding: "10px 12px", fontSize: "14px", border: "1px solid var(--border-color)",
-                  borderRadius: "8px", outline: "none", boxSizing: "border-box",
-                  backgroundColor: editingService ? "var(--border-color)" : "var(--input-bg)",
-                  color: "var(--text-main)"
-                }}
-              />
-            </div>
-          )}
-
-          {/* 启动方式切换 */}
+          {/* 启动方式切换 - 移到最上方 */}
           <div style={{ marginBottom: "16px" }}>
             <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text-secondary)", marginBottom: "8px" }}>
               启动方式 <span style={{ color: "#ef4444" }}>*</span>
@@ -460,25 +464,53 @@ function ServiceModal({
                 📱 启动应用
               </button>
             </div>
+          </div>
 
-            {isAppMode ? (
+          {/* 标识符 - 只在命令模式显示 */}
+          {!isAppMode && (
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text-secondary)", marginBottom: "6px" }}>
+                标识符 <span style={{ color: "#ef4444" }}>*</span>
+              </label>
               <input
-                type="text"
-                value={appPath}
-                onChange={(e) => setAppPath(e.target.value)}
-                placeholder="/Applications/Chrome.app 或 Google Chrome"
+                type="text" value={label} onChange={(e) => setLabel(e.target.value)}
+                disabled={!!editingService} placeholder="com.company.service"
                 style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  fontSize: "14px",
-                  border: "1px solid var(--border-color)",
-                  borderRadius: "8px",
-                  outline: "none",
-                  boxSizing: "border-box",
-                  backgroundColor: "var(--input-bg)",
+                  width: "100%", padding: "10px 12px", fontSize: "14px", border: "1px solid var(--border-color)",
+                  borderRadius: "8px", outline: "none", boxSizing: "border-box",
+                  backgroundColor: editingService ? "var(--border-color)" : "var(--input-bg)",
                   color: "var(--text-main)"
                 }}
               />
+            </div>
+          )}
+
+          {/* 启动命令或应用输入框 */}
+          <div style={{ marginBottom: "16px" }}>
+            <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text-secondary)", marginBottom: "6px" }}>
+              {isAppMode ? "应用名称" : "启动命令"} <span style={{ color: "#ef4444" }}>*</span>
+            </label>
+            {isAppMode ? (
+              <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border-color)", borderRadius: "8px", overflow: "hidden" }}>
+                <span style={{ padding: "10px 12px", backgroundColor: "var(--border-color)", color: "var(--text-secondary)", fontSize: "14px", whiteSpace: "nowrap" }}>
+                  /Applications/
+                </span>
+                <input
+                  type="text"
+                  value={appPath}
+                  onChange={(e) => setAppPath(e.target.value)}
+                  placeholder="Google Chrome.app"
+                  style={{
+                    flex: 1,
+                    padding: "10px 12px",
+                    fontSize: "14px",
+                    border: "none",
+                    outline: "none",
+                    backgroundColor: "var(--input-bg)",
+                    color: "var(--text-main)"
+                  }}
+                />
+              </div>
             ) : (
               <input
                 type="text"
