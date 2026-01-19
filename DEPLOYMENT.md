@@ -1,123 +1,207 @@
-# 🚀 发布到 GitHub 和版本管理 - 简化版
+# 部署指南
 
-由于 Tauri 更新插件的兼容性问题,我们暂时移除了自动下载功能,现在只保留了基础的检查更新功能。
+本文档说明如何构建和发布 ServiceMaster 应用。
 
-## ✅ 当前可用的功能:
+## 前置要求
 
-### 1. GitHub Actions 多平台自动构建 (.github/workflows/release.yml)
+### 环境变量配置
 
-当推送标签时自动触发构建:
-- ✅ macOS ARM64 (Apple Silicon)
-- ✅ macOS x86_64 (Intel)
-- ✅ Linux x86_64
-- ✅ Windows x86_64
+确保已配置以下环境变量（用于 Tauri 代码签名）：
 
-### 2. 版本管理
-
-**获取当前版本:**
 ```bash
-git tag v0.2.0
-git push origin main --tags
+# Tauri 私钥路径
+export TAURI_PRIVATE_KEY="/path/to/your/private_key.pem"
+
+# Tauri 密钥密码
+export TAURI_KEY_PASSWORD="your_password"
 ```
 
-### 3. 手动检查更新
+### 系统要求
 
-应用内目前显示"已是最新版本"。完整的自动更新功能需要等待 Tauri 更新插件的兼容性问题解决。
+- macOS 10.13 或更高版本
+- Node.js 18+
+- Rust 1.70+
+- Xcode 命令行工具
 
-## 🔄 完整实现更新功能的步骤(待完成)
+## 版本发布流程
 
-### 选项1: 使用 Tauri 插件 (推荐)
+### 1. 更新版本号
 
-当插件兼容性问题解决后,按以下步骤操作:
+在以下文件中更新版本号：
 
-1. 重新添加 `tauri-plugin-updater` 依赖
-2. 配置 updater 插件 (已在 `tauri.conf.json` 中配置)
-3. 生成密钥对:
+```bash
+# package.json
+"version": "0.1.7"
+
+# src-tauri/tauri.conf.json
+"version": "0.1.7"
+```
+
+### 2. 更新文档
+
+- 更新 `CHANGELOG.md` 添加版本更新记录
+- 更新 `README.md` 如有功能变更
+- 添加应用截图到 `docs/images/` 目录
+
+### 3. 提交更改
+
+```bash
+git add -A
+git commit -m "Bump version to 0.1.7"
+git push origin main
+```
+
+### 4. 构建应用
+
+```bash
+# 清理旧的构建缓存
+cd src-tauri
+cargo clean
+
+# 构建应用
+cd ..
+npm run tauri build
+```
+
+构建过程需要 2-5 分钟，生成的文件位于：
+
+```
+src-tauri/target/release/bundle/
+├── dmg/
+│   └── ServiceMaster_0.1.7_aarch64.dmg   # Apple Silicon 安装包
+├── macos/
+│   └── ServiceMaster.app                 # macOS 应用程序
+└── ...
+```
+
+### 5. 创建 GitHub Release
+
+#### 方式一：使用 GitHub CLI（推荐）
+
+```bash
+# 安装 GitHub CLI
+brew install gh
+
+# 登录
+gh auth login
+
+# 创建 Release 并上传 DMG 文件
+gh release create v0.1.7 \
+  --title "v0.1.7 - 版本描述" \
+  --notes "Release notes..." \
+  src-tauri/target/release/bundle/dmg/ServiceMaster_0.1.7_aarch64.dmg
+```
+
+#### 方式二：通过 GitHub 网页
+
+1. 访问 https://github.com/ahao430/mac-service-master/releases/new
+2. 填写以下信息：
+   - **Tag version**: `v0.1.7`
+   - **Target**: `main`
+   - **Release title**: `v0.1.7 - 版本描述`
+   - **Description**: 复制 CHANGELOG 中的更新内容
+3. 上传构建好的 `.dmg` 文件
+4. 点击 "Publish release"
+
+### 6. 验证发布
+
+发布完成后，检查以下内容：
+
+- [ ] Release 页面显示正确的版本号和更新日志
+- [ ] `.dmg` 文件成功上传
+- [ ] 应用内置的自动更新能检测到新版本
+
+## 开发构建
+
+### 本地开发
+
+```bash
+npm install
+npm run tauri dev
+```
+
+### 生产构建（不签名）
+
+```bash
+npm run build
+npm run tauri build -- --no-bundle
+```
+
+## 故障排除
+
+### 构建失败
+
+如果构建失败，尝试以下步骤：
+
+```bash
+# 清理缓存
+rm -rf node_modules
+rm -rf src-tauri/target
+npm install
+
+# 重新构建
+npm run tauri build
+```
+
+### 签名问题
+
+如果遇到签名相关问题：
+
+1. 检查环境变量是否正确设置
+2. 确认私钥文件存在且可访问
+3. 验证书密码是否正确
+
+```bash
+# 检查环境变量
+echo $TAURI_PRIVATE_KEY
+echo $TAURI_KEY_PASSWORD
+
+# 测试私钥
+openssl rsa -in $TAURI_PRIVATE_KEY -check -noout
+```
+
+### "文件已损坏" 错误
+
+由于应用未经过 Apple 开发者签名，用户首次打开可能会提示"文件已损坏"。提供以下解决方案：
+
+1. **终端命令（推荐）**：
    ```bash
-   cargo tauri signer generate
+   sudo xattr -rd com.apple.quarantine /Applications/ServiceMaster.app
    ```
-4. 配置 GitHub Secrets (`TAURI_PRIVATE_KEY`, `TAURI_KEY_PASSWORD`)
-5. 实现完整的更新检查、下载和安装流程
 
-### 选项2: 手动实现更新
+2. **系统设置**：
+   前往 `系统设置` -> `隐私与安全性` -> `安全性`，点击 **"仍要打开"**。
 
-使用 `reqwest` 手动实现 GitHub API 调用:
+3. **右键打开**：
+   按住 `Control` 键点击应用图标，选择 `打开`。
 
-```rust
-#[tauri::command]
-async fn check_update() -> Result<Option<String>, String> {
-    // 使用 reqwest 查询 GitHub API
-    let response = reqwest::get(
-        "https://api.github.com/repos/wanghao/mac-service-master/releases/latest"
-    ).send().await.map_err(|e| e.to_string())?;
+## 自动更新配置
 
-    if response.status().is_success() {
-        let json: serde_json::Value = response.json().await.map_err(|e| e.to_string()))?;
-        // 解析最新版本号
-        if let Some(version) = json.get("tag_name") {
-            Ok(version.as_str().map(|s| s.replace("v", "").to_string()))
-        } else {
-            Ok(None)
-        }
-    } else {
-        Ok(None)
+ServiceMaster 使用 Tauri 内置的更新插件。配置位于 `src-tauri/tauri.conf.json`：
+
+```json
+{
+  "plugins": {
+    "updater": {
+      "pubkey": "public_key_here",
+      "endpoints": [
+        "https://github.com/wanghao/mac-service-master/releases/latest/download/latest-release.json"
+      ]
     }
+  }
 }
 ```
 
-## 📦 手动发布流程
+更新机制会自动检查 GitHub Releases 并提示用户更新。
 
-### 发布新版本:
+## 发布检查清单
 
-1. 更新版本号
-   ```toml
-   [package]
-   version = "0.2.0"
-   ```
-
-2. 提交代码并打标签:
-   ```bash
-   git add .
-   git commit -m "Release v0.2.0"
-   git tag -a v0.2.0
-   git push origin main --tags
-   ```
-
-3. GitHub Actions 自动构建
-
-4. 在 GitHub 创建 Release:
-   - 进入 Releases 页面
-   - 找到 draft release
-   - 编辑说明
-   - 发布
-
-## 📝 当前限制
-
-- ❌ 自动下载更新: 受 tauri-plugin-updater 插件限制
-- ✅ 手动检查版本: 可通过 GitHub API 实现
-- ✅ 多平台构建: 完全支持
-
-## 🔧 临时解决方案
-
-在设置页面,用户点击"检查更新"时会显示"已是最新版本"。
-
-## 📚 参考
-
-- [Tauri 更新插件文档](https://github.com/tauri-apps/tauri-plugin-updater)
-- [GitHub Actions 文档](https://docs.github.com/en/actions)
-
-## 🐛 已知问题
-
-### 编译错误
-
-如果遇到 Rust 编译错误,请检查:
-1. 是否正确安装 Rust
-2. 是否有版本冲突
-3. 依赖是否完整
-
-### GitHub Actions 失败
-
-如果 CI/CD 失败:
-1. 检查 GitHub Actions 日志
-2. 确认 workflows 文件配置正确
-3. 验证 Secrets 配置是否完整
+- [ ] 版本号已更新（package.json + tauri.conf.json）
+- [ ] CHANGELOG.md 已更新
+- [ ] README.md 已更新（如有需要）
+- [ ] 应用截图已添加（如有需要）
+- [ ] 所有更改已提交并推送到 GitHub
+- [ ] 构建成功并生成 .dmg 文件
+- [ ] GitHub Release 已创建
+- [ ] .dmg 文件已上传到 Release
+- [ ] 验证自动更新功能正常工作
