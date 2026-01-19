@@ -687,17 +687,28 @@ fn open_url(url: String) -> Result<(), String> {
 fn check_app_running(app_name: String) -> Result<bool, String> {
     #[cfg(target_os = "macos")]
     {
-        // 使用 AppleScript 检测应用是否在运行，这是最可靠的方法
-        let script = format!("tell application \"System Events\" to (name of processes) contains \"{}\"", app_name);
+        // 使用 AppleScript 获取所有进程名，然后在 Rust 中进行大小写不敏感的匹配
+        let script = "tell application \"System Events\" to name of processes";
         let output = Command::new("osascript")
             .arg("-e")
-            .arg(&script)
+            .arg(script)
             .output()
             .map_err(|e| e.to_string())?;
 
         if output.status.success() {
-            let result = String::from_utf8_lossy(&output.stdout);
-            Ok(result.trim() == "true")
+            let processes = String::from_utf8_lossy(&output.stdout);
+            let app_name_lower = app_name.to_lowercase().replace(" ", "").replace("-", "").replace("_", "");
+
+            // 检查进程列表中是否有匹配的应用（忽略大小写、空格、下划线、连字符）
+            for process in processes.split(',') {
+                let process_name = process.trim();
+                let process_normalized = process_name.to_lowercase().replace(" ", "").replace("-", "").replace("_", "");
+
+                if process_normalized.contains(&app_name_lower) || app_name_lower.contains(&process_normalized) {
+                    return Ok(true);
+                }
+            }
+            Ok(false)
         } else {
             Ok(false)
         }
