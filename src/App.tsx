@@ -476,6 +476,7 @@ function ServiceModal({
                 type="button"
                 onClick={() => {
                   setIsAppMode(false);
+                  setAppPath(""); // 切换到服务模式时清空 app_path
                   // 切换到服务模式时，如果当前是app图标，改为terminal图标
                   if (icon === "app") {
                     setIcon("terminal");
@@ -1208,20 +1209,24 @@ function ServiceCard({ service, onToggle, onRestart, onEdit, onViewLogs, setting
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
           </button>
         )}
-        <button onClick={onEdit} title="编辑" style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+        {/* Start/Stop button */}
+        <button onClick={onToggle} title={service.is_loaded ? "停止" : "启动"} style={{ background: "transparent", border: "none", color: service.is_loaded ? "#ef4444" : (settings?.theme_color ?? "#3b82f6"), cursor: "pointer" }}>
+          {service.is_loaded ? <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg> : <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>}
         </button>
+        {/* Restart button */}
         <button onClick={onRestart} title="重启" style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6" /><path d="M1 20v-6h6" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
         </button>
+        {/* Edit button */}
+        <button onClick={onEdit} title="编辑" style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+        </button>
+        {/* Logs button */}
         {service.standard_out_path && (
           <button onClick={onViewLogs} title="日志" style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>
           </button>
         )}
-        <button onClick={onToggle} title={service.is_loaded ? "停止" : "启动"} style={{ background: "transparent", border: "none", color: service.is_loaded ? "#ef4444" : (settings?.theme_color ?? "#3b82f6"), cursor: "pointer" }}>
-          {service.is_loaded ? <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg> : <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>}
-        </button>
       </div>
     </div>
   );
@@ -1236,6 +1241,7 @@ function App() {
   const [portConflict, setPortConflict] = useState<{ service: LaunchAgent; pid: number } | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [appSettings, setAppSettings] = useState<AppSettings>({
     theme_color: "#3b82f6",
     opacity: 0.8,
@@ -1260,6 +1266,7 @@ function App() {
   };
 
   const fetchServices = async () => {
+    setIsRefreshing(true);
     try {
       const result = await invoke<LaunchAgent[]>("get_services");
 
@@ -1295,6 +1302,8 @@ function App() {
       setServices(servicesWithAppStatus);
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -1454,13 +1463,55 @@ function App() {
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: `rgba(var(--bg-app), ${safeSettings.opacity})`, display: "flex", flexDirection: "column", color: "var(--text-main)" }}>
-      <div style={{ flexShrink: 0, padding: "12px 16px", borderBottom: "1px solid var(--border-color)", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "8px", backgroundColor: `rgba(var(--bg-card), 0.5)` }}>
-        <button onClick={() => invoke("open_url", { url: "https://github.com/ahao430/mac-service-master" })} title="GitHub 仓库" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "6px", borderRadius: "6px", backgroundColor: "var(--border-color)", color: "var(--text-main)", border: "none", cursor: "pointer", marginRight: "auto" }}>
-          {ICONS.github}
-        </button>
+      <div style={{ flexShrink: 0, padding: "12px 16px", borderBottom: "1px solid var(--border-color)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", backgroundColor: `rgba(var(--bg-card), 0.5)` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <button onClick={() => invoke("open_url", { url: "https://github.com/ahao430/mac-service-master" })} title="GitHub 仓库" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "6px", borderRadius: "6px", backgroundColor: "var(--border-color)", color: "var(--text-main)", border: "none", cursor: "pointer" }}>
+            {ICONS.github}
+          </button>
+          <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+            v0.1.9
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
         <button onClick={() => { setEditingService(null); setIsModalOpen(true); }} style={{ padding: "6px 12px", borderRadius: "6px", backgroundColor: safeSettings.theme_color, color: "#fff", border: "none", cursor: "pointer", fontSize: "13px" }}>新建服务</button>
-        <button onClick={fetchServices} style={{ padding: "6px 12px", borderRadius: "6px", backgroundColor: "var(--border-color)", color: "var(--text-main)", border: "none", cursor: "pointer", fontSize: "13px" }}>刷新</button>
+        <button
+          onClick={fetchServices}
+          disabled={isRefreshing}
+          style={{
+            padding: "6px 12px",
+            borderRadius: "6px",
+            backgroundColor: "var(--border-color)",
+            color: "var(--text-main)",
+            border: "none",
+            cursor: isRefreshing ? "not-allowed" : "pointer",
+            fontSize: "13px",
+            opacity: isRefreshing ? 0.6 : 1,
+            display: "flex",
+            alignItems: "center",
+            gap: "4px"
+          }}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            style={{
+              transform: isRefreshing ? "rotate(360deg)" : "rotate(0deg)",
+              transition: isRefreshing ? "transform 1s linear infinite" : "none",
+              animation: isRefreshing ? "spin 1s linear infinite" : "none"
+            }}
+          >
+            <path d="M23 4v6h-6" />
+            <path d="M1 20v-6h6" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+          {isRefreshing ? "刷新中..." : "刷新"}
+        </button>
         <button onClick={() => setIsSettingsOpen(true)} style={{ padding: "6px 12px", borderRadius: "6px", backgroundColor: "var(--border-color)", color: "var(--text-main)", border: "none", cursor: "pointer", fontSize: "20px", fontWeight: "bold" }}>⚙</button>
+        </div>
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>

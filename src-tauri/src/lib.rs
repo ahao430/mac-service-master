@@ -751,17 +751,35 @@ fn check_app_running(app_name: String) -> Result<bool, String> {
 fn quit_app(app_name: String) -> Result<String, String> {
     #[cfg(target_os = "macos")]
     {
-        let output = Command::new("osascript")
+        // 首先尝试使用 AppleScript 关闭 GUI 应用
+        let applescript_output = Command::new("osascript")
             .arg("-e")
             .arg(format!("quit app \"{}\"", app_name))
             .output()
             .map_err(|e| e.to_string())?;
 
-        if output.status.success() {
+        // 如果 AppleScript 成功，返回
+        if applescript_output.status.success() {
+            return Ok("Application quit successfully".to_string());
+        }
+
+        // 如果 AppleScript 失败（可能是命令行进程），使用 pkill
+        let pkill_output = Command::new("pkill")
+            .arg("-f")
+            .arg(&app_name)
+            .output()
+            .map_err(|e| e.to_string())?;
+
+        if pkill_output.status.success() {
             Ok("Application quit successfully".to_string())
         } else {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            Err(format!("Failed to quit application: {}", stderr))
+            // 两种方法都失败了
+            let applescript_stderr = String::from_utf8_lossy(&applescript_output.stderr);
+            let pkill_stderr = String::from_utf8_lossy(&pkill_output.stderr);
+            Err(format!(
+                "Failed to quit application. AppleScript: {}, pkill: {}",
+                applescript_stderr, pkill_stderr
+            ))
         }
     }
 
