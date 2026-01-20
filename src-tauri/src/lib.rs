@@ -714,9 +714,36 @@ fn check_app_running(app_name: String) -> Result<bool, String> {
         }
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
     {
-        Ok(false)
+        // Windows: 使用 tasklist 命令检查进程
+        let output = Command::new("tasklist")
+            .arg("/FI")
+            .arg(format!("IMAGENAME eq {}.exe", app_name))
+            .arg("/NH")
+            .output()
+            .map_err(|e| e.to_string())?;
+
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            // 如果找到进程，tasklist 会输出进程信息
+            Ok(stdout.contains(&app_name))
+        } else {
+            Ok(false)
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // Linux: 使用 pgrep 命令检查进程
+        let output = Command::new("pgrep")
+            .arg("-f")
+            .arg(&app_name)
+            .output()
+            .map_err(|e| e.to_string())?;
+
+        // pgrep 成功且有输出表示进程在运行
+        Ok(output.status.success() && !output.stdout.is_empty())
     }
 }
 
@@ -738,9 +765,39 @@ fn quit_app(app_name: String) -> Result<String, String> {
         }
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
     {
-        Err("Not supported on this platform".to_string())
+        // Windows: 使用 taskkill 命令关闭应用
+        let output = Command::new("taskkill")
+            .arg("/IM")
+            .arg(format!("{}.exe", app_name))
+            .arg("/F")
+            .output()
+            .map_err(|e| e.to_string())?;
+
+        if output.status.success() {
+            Ok("Application quit successfully".to_string())
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(format!("Failed to quit application: {}", stderr))
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // Linux: 使用 pkill 命令关闭应用
+        let output = Command::new("pkill")
+            .arg("-f")
+            .arg(&app_name)
+            .output()
+            .map_err(|e| e.to_string())?;
+
+        if output.status.success() {
+            Ok("Application quit successfully".to_string())
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(format!("Failed to quit application: {}", stderr))
+        }
     }
 }
 
