@@ -48,6 +48,8 @@ jobs:
 
       - name: Extract changelog for current version
         id: changelog
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
           VERSION="${{ github.ref_name }}"
           VERSION_NO_V="${VERSION#v}"
